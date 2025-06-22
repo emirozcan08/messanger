@@ -1,103 +1,64 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>WhatsApp-Style Messaging</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 0; background-color: #f0f2f5; }
-    .container { max-width: 600px; margin: 20px auto; }
-    .chat-box { height: 70vh; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background-color: white; }
-    .message { max-width: 70%; margin: 5px; padding: 10px; border-radius: 10px; }
-    .sent { background-color: #dcf8c6; margin-left: auto; }
-    .received { background-color: #e9ecef; }
-    .input-area { display: flex; gap: 10px; padding: 10px; }
-    input { flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 5px; }
-    button { padding: 5px 15px; background-color: #25d366; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    button:disabled { background-color: #a0d9b4; cursor: not-allowed; }
-    #register-btn { background-color: #0084ff; }
-  </style>
+    <title>Online Mesajlaşma</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        #chat {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: scroll;
+        }
+
+        #message {
+            width: 300px;
+        }
+
+        #username {
+            width: 100px;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h2 style="text-align: center; background-color: #25d366; color: white; padding: 10px;">WhatsApp-Style Messaging</h2>
-    <div id="chat-box" class="chat-box"></div>
-    <div class="input-area">
-      <button id="register-btn" onclick="registerWithGmail()">Gmail ile Kayıt</button>
-      <button id="host-btn" onclick="setHost()" disabled>Host Ol</button>
-      <input type="text" id="message-input" placeholder="Mesaj yaz..." disabled>
-      <button id="send-btn" onclick="sendMessage()" disabled>Gönder</button>
-    </div>
-  </div>
+    <h1>Online Mesajlaşma</h1>
+    <div id="chat"></div>
+    <input type="text" id="username" placeholder="Kullanıcı adı" />
+    <input type="text" id="message" placeholder="Mesajınızı yazın" />
+    <button onclick="sendMessage()">Gönder</button>
 
-  <script>
-    let isHost = false;
-    let gmailToken = '';
+    <script>
+        const socket = io();
 
-    function updateChat(messages) {
-      const chatBox = document.getElementById('chat-box');
-      chatBox.innerHTML = '';
-      messages.forEach(msg => {
-        const div = document.createElement('div');
-        div.className = `message ${msg.sent ? 'sent' : 'received'}`;
-        div.innerHTML = `<p>${msg.text}</p><small>${msg.time}</small>`;
-        chatBox.appendChild(div);
-      });
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
+        socket.on('new_message', function(data) {
+            const chat = document.getElementById('chat');
+            const message = document.createElement('p');
+            message.innerText = `${data.username}: ${data.message}`;
+            chat.appendChild(message);
+            chat.scrollTop = chat.scrollHeight;
+        });
 
-    function registerWithGmail() {
-      // Simülasyon (Gerçekte Gmail API ile token alınacak)
-      gmailToken = 'mock-token';
-      document.getElementById('register-btn').disabled = true;
-      document.getElementById('host-btn').disabled = false;
-      alert('Gmail ile kayıt başarılı!');
-    }
-
-    function setHost() {
-      isHost = true;
-      document.getElementById('host-btn').disabled = true;
-      document.getElementById('message-input').disabled = false;
-      document.getElementById('send-btn').disabled = false;
-      alert('Host olarak ayarlandınız!');
-    }
-
-    function sendMessage() {
-      if (!isHost) return;
-      const messageInput = document.getElementById('message-input');
-      const message = messageInput.value.trim();
-      if (!message) return;
-
-      // Mesajı sunucuya gönder (Python backend'e AJAX ile)
-      fetch('/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: message, token: gmailToken })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          const newMessage = { text: message, sent: true, time: new Date().toLocaleTimeString() };
-          updateChat([...JSON.parse(localStorage.getItem('messages') || '[]'), newMessage]);
-          messageInput.value = '';
-        } else {
-          alert('Mesaj gönderilemedi!');
+        function sendMessage() {
+            const username = document.getElementById('username').value;
+            const message = document.getElementById('message').value;
+            if (username && message) {
+                socket.emit('send_message', { username: username, message: message });
+                document.getElementById('message').value = '';
+            } else {
+                alert('Lütfen kullanıcı adı ve mesaj girin!');
+            }
         }
-      });
-    }
 
-    // Mesajları periyodik kontrol et
-    setInterval(() => {
-      fetch('/check-messages', {
-        headers: { 'Authorization': `Bearer ${gmailToken}` }
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.messages) {
-          localStorage.setItem('messages', JSON.stringify(data.messages));
-          updateChat(data.messages);
-        }
-      });
-    }, 5000);
-  </script>
+        document.getElementById('message').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
 </body>
 </html>
